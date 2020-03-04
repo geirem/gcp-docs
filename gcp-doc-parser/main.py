@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 from lib.DocumentParser import DocumentParser
 from lib.KeyCreator import KeyCreator
 
+CACHE = 'cache'
+
 
 def fetch_images(images):
     for image in images:
@@ -39,76 +41,66 @@ def parse(articles):
         parser.parse()
         article_file = f'../src/{articles["directory"]}' + article.split('/').pop() + '.tex'
         with open(article_file, 'w') as outimage:
-            outimage.write(''.join(parser.get_nodes()).replace(' .', '.').encode('utf-8').decode('ascii',
-                                                                                                 errors='replace').replace(
-                '�', '?'))
+            outimage.write(
+                ''.join(
+                    parser.get_nodes()
+                ).replace(
+                    ' .', '.'
+                ).encode(
+                    'utf-8'
+                ).decode(
+                    'ascii', errors='replace'
+                ).replace(
+                    '�', '?'
+                )
+            )
         fetch_images(parser.get_images())
         create_index(articles)
 
 
+def prepare():
+    if not os.path.isdir(CACHE):
+        os.mkdir(CACHE)
+
+
 def main():
-    foo = [
-        'https://cloud.google.com/compute/docs/concepts',
-        'https://cloud.google.com/iam/docs/concepts',
-        'https://cloud.google.com/dlp/docs/concepts',
-        'https://cloud.google.com/vpc/docs/concepts',
-        'https://cloud.google.com/storage/docs/concepts',
-        'https://cloud.google.com/identity/docs/concepts',
-        'https://cloud.google.com/sql/docs/concepts',
+    prepare()
+    base_url = 'https://cloud.google.com'
+    volumes = [
+        '/compute/docs/concepts',
+        '/iam/docs/concepts',
+        '/dlp/docs/concepts',
+        '/vpc/docs/concepts',
+        '/storage/docs/concepts',
+        '/identity/docs/concepts',
+        '/sql/docs/concepts',
     ]
-    for f in foo:
-        key = f.split('/')[3]
-        r = requests.get(f, allow_redirects=True)
-        html_doc = r.content
+    for chapter in volumes:
+        key = chapter.split('/')[1]
+        html_doc = download(base_url, chapter)
         soup = BeautifulSoup(html_doc, 'html.parser')
-        title = soup.title.text.split('|')[0].strip()
+        title = soup.title.text.split('|')[1].strip().replace(' Documentation', '')
         article = soup.find('div', {'class': 'devsite-article-body'})
-        links = article.find_all('a')
-        print(links)
+        cards = article.find_all('div', {'class': 'card'})
+        print('\\chapter{' + title + '}')
         print(key)
+        for card in cards:
+            links = card.find_all('a')
+            for link in links:
+                print(base_url + link.attrs['href'])
         exit(1)
-    chapters = [
-        {
-            'title': 'Cloud Virtual Private Network',
-            'directory': 'chapters/vpc/',
-            'articles': [
-                'https://cloud.google.com/vpc/docs/overview',
-                'https://cloud.google.com/vpc/docs/vpc',
-                'https://cloud.google.com/vpc/docs/firewalls',
-                'https://cloud.google.com/vpc/docs/firewall-rules-logging',
-                'https://cloud.google.com/vpc/docs/routes',
-                'https://cloud.google.com/vpc/docs/advanced-vpc',
-                'https://cloud.google.com/vpc/docs/legacy',
-                'https://cloud.google.com/vpc/docs/shared-vpc',
-                'https://cloud.google.com/vpc/docs/vpc-peering',
-                'https://cloud.google.com/compute/docs/ip-addresses',
-                'https://cloud.google.com/vpc/docs/alias-ip',
-                'https://cloud.google.com/vpc/docs/multiple-interfaces-concepts',
-                'https://cloud.google.com/vpc/docs/packet-mirroring',
-                'https://cloud.google.com/vpc/docs/private-access-options',
-            ]
-        },
-        {
-            'title': 'Cloud Data Loss Prevention',
-            'directory': 'chapters/dlp/',
-            'articles': [
-                'https://cloud.google.com/dlp/docs/concepts-actions',
-                'https://cloud.google.com/dlp/docs/concepts-image-redaction',
-                'https://cloud.google.com/dlp/docs/infotypes-reference',
-                'https://cloud.google.com/dlp/docs/concepts-job-triggers',
-                'https://cloud.google.com/dlp/docs/likelihood',
-                'https://cloud.google.com/dlp/docs/classification-redaction',
-                'https://cloud.google.com/dlp/docs/concepts-date-shifting',
-                'https://cloud.google.com/dlp/docs/concepts-bucketing',
-                'https://cloud.google.com/dlp/docs/pseudonymization',
-                'https://cloud.google.com/dlp/docs/concepts-text-redaction',
-                'https://cloud.google.com/dlp/docs/concepts-risk-analysis',
-                'https://cloud.google.com/dlp/docs/concepts-templates',
-            ]
-        }
-    ]
-    for articles in chapters:
-        parse(articles)
+
+
+def download(base_url, chapter):
+    cache_name = CACHE + '/' + chapter[1:].replace('/', '_')
+    if os.path.isfile(cache_name) and os.path.getsize(cache_name) > 0:
+        with open(cache_name, 'r') as inimage:
+            return inimage.read()
+    r = requests.get(base_url + chapter, allow_redirects=True)
+    content = r.content.decode('utf-8', 'strict')
+    with open(cache_name, 'w') as outimage:
+        outimage.write(content)
+    return content
 
 
 main()
