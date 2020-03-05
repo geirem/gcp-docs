@@ -92,8 +92,12 @@ def main():
         '/storage/docs/concepts',
         '/identity/docs/concepts',
         '/sql/docs/concepts',
+        '/armor/docs/concepts',
+        'https://cloud.google.com/cdn/docs/concepts',
+        'https://cloud.google.com/kubernetes-engine/docs/concepts',
     ]
     for chapter in volumes:
+        chapter = chapter.replace(BASE_URL, '')
         topic = chapter.split('/')[1]
         topic_dir = BASE_DIR + '/' + topic
         if not os.path.isdir(topic_dir):
