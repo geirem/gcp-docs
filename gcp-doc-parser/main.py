@@ -62,11 +62,11 @@ def parse(chapter, article_url):
 def download(document):
     cache_name = CACHE + '/' + document[1:].replace('/', '_')
     if os.path.isfile(cache_name) and os.path.getsize(cache_name) > 0:
-        with open(cache_name, 'r') as inimage:
-            return inimage.read()
+        with open(cache_name, 'r', encoding='utf-8') as inimage:
+            return inimage.read().encode('utf-8')
     r = requests.get(BASE_URL + document, allow_redirects=True)
     content = r.content.decode('utf-8', 'strict')
-    with open(cache_name, 'w') as outimage:
+    with open(cache_name, 'w', encoding='utf-8') as outimage:
         outimage.write(content)
     return content
 
@@ -96,24 +96,31 @@ def main():
         'https://cloud.google.com/cdn/docs/concepts',
         'https://cloud.google.com/kubernetes-engine/docs/concepts',
     ]
-    for chapter in volumes:
-        chapter = chapter.replace(BASE_URL, '')
-        topic = chapter.split('/')[1]
-        topic_dir = BASE_DIR + '/' + topic
-        if not os.path.isdir(topic_dir):
-            os.mkdir(topic_dir)
-        html_doc = download(chapter)
-        soup = BeautifulSoup(html_doc, 'html.parser')
-        title = soup.title.text.split('|')[1].strip().replace(' Documentation', '')
-        article_body = soup.find('div', {'class': 'devsite-article-body'})
-        cards = article_body.find_all('div', {'class': 'card'})
-        print('\\chapter{' + title + '}')
-        links = [l for l in article_body.find_all('a')]
-        for card in cards:
-            links = card.find_all('a')
-            for link in links:
-                print(link.attrs['href'])
-                parse(topic, link.attrs['href'])
-
+    with open('output.html', 'w', encoding='utf-8') as outimage:
+        outimage.write('<html><body>')
+        for chapter in volumes:
+            outimage.write('<div>')
+            chapter = chapter.replace(BASE_URL, '')
+            topic = chapter.split('/')[1]
+            topic_dir = BASE_DIR + '/' + topic
+            if not os.path.isdir(topic_dir):
+                os.mkdir(topic_dir)
+            html_doc = download(chapter)
+            soup = BeautifulSoup(html_doc, 'html.parser')
+            title = soup.title.text.split('|')[1].strip().replace(' Documentation', '')
+            outimage.write(f'<h1>{title}</h1>')
+            article_body = soup.find('div', {'class': 'devsite-article-body'}).article
+            outimage.write(article_body.prettify())
+            outimage.write('</div>')
+            # exit(0)
+            # cards = article_body.find_all('div', {'class': 'card'})
+            # print('\\chapter{' + title + '}')
+            # links = [l for l in article_body.find_all('a')]
+            # for card in cards:
+            #     links = card.find_all('a')
+            #     for link in links:
+            #         print(link.attrs['href'])
+            #         parse(topic, link.attrs['href'])
+        outimage.write('</body></html>')
 
 main()
